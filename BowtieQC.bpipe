@@ -1,0 +1,46 @@
+build = {
+exec """
+      mkdir $input.dir/"SAM_BAM"; mkdir $input.dir/"Annot_Assembly"; mkdir $input.dir/"idx_assembly"; cp -v $input.dir/"reference/Paired_Ranked_Contigs.fasta" $input.dir/"Annot_Assembly/" 
+     """
+}
+
+index = {
+exec """
+     cd $input.dir/"idx_assembly"; bowtie2-build ../"reference/Paired_Ranked_Contigs.fasta" Paired_Rank
+     """
+}
+
+map = {
+exec """
+     bowtie2 --threads 8 -x $input.dir/"idx_assembly/Paired_Rank" -1 $input1.gz -2 $input2.gz -S $input.dir/"SAM_BAM/Paired_z.sam" 2> $input.dir/"SAM_BAM/z.log"
+     """
+}
+
+makeBAM = {
+exec """
+     samtools view -b -S -o $input.dir/"SAM_BAM/Paired_z.bam" $input.dir/"SAM_BAM/Paired_z.sam"
+     """
+}
+
+sortBAM = {
+exec """
+     samtools sort $input.dir/"SAM_BAM/Paired_z.bam" $input.dir/"SAM_BAM/Paired.sorted"
+     """
+}
+
+getDepth = {
+exec """
+     samtools depth $input.dir/"SAM_BAM/Paired.sorted.bam" > $input.dir/"Annot_Assembly/Paired_depth.txt"
+     """
+}
+
+printPairedEndStats = {
+exec """
+     perl revis_gather_PE_read_stats.pl $input.dir/"Annot_Assembly/Paired_Ranked_Contigs.fasta" $input.dir/"SAM_BAM/Paired_z.sam" $input.dir/"Annot_Assembly/Paired_depth.txt"
+     """
+}
+
+Bpipe.run {
+  build + index + map + makeBAM + sortBAM + getDepth + printPairedEndStats
+}
+
