@@ -1,0 +1,78 @@
+// A paired-end reads and assembly QC set-up script with improved portability
+// Requires only perl v5 or higher, velvet/1.2.10 or higher, fastx-toolkit/0.0.13 or higher, and lyveSET v1.0.4 or higher
+// For a standalone perl script for shuffling fastq reads, see Tsuyoshi Hachiya's page:
+//  https://github.com/hacchy/MetaVelvet/blob/master/scripts/shuffleSequences_fastq.pl 
+
+myProject="Salmonella_Certification"
+
+gunzipPair = {
+     // output.dir="NGS_Multi_Heal"
+   transform('.fastq.gz')to('.fastq'){
+     exec "gunzip -c $input > $output"
+       }
+   }
+
+fastxQual = {
+     // output.dir="NGS_Multi_Heal"
+   transform(".fastq") to (".quality.tsv") {
+     exec """
+            fastx_quality_stats -Q33 -i $input -o $output;
+          """
+   }
+}
+
+findAvgQual = {
+     // output.dir="NGS_Multi_Heal"
+    transform(".quality.tsv") to (".meanQual.txt") {
+      exec """
+            cat $input | perl -ne 'print if not eof()' | perl -lne '@F=split(/\\t/, \$_); \$s+=\$F[5]; END{print \$s/\$.};' > $output;
+            echo -ne $output, "\\t";  cat $output| perl -p -i -e 's/(\\d+\\.\\d+)/sprintf "%.2f", \$1/eg'
+           """ 
+     }
+  }
+
+
+buildPair = {
+   transform("Pairs.fastq") {
+     from (".fastq",".fastq") {
+         exec "shuffleSequences_fastq.pl $input1 $input2 $output; rm -v $input1; rm -v $input2"
+     }
+   }
+}
+
+trimPair = {
+   transform("Pairs.fastq") to ("fastx5.fastq.gz") {
+     exec "fastx_trimmer -Q33 -t 5 -i $input -z -o $output"
+   }
+}
+
+cleanAssembly = {
+  transform('.fasta') to ('.sorted.fasta'){
+      exec "perl exorcise_endline.pl < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
+    }
+ 
+}
+
+
+createLyveSET = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+  
+   transform("_lyveSET") {
+     from (".sorted.fasta","fastx5.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/; cp -v $myProject/$sub/"C6472-M3235-14-007_S2_L001_fastx5.fastq.gz" $output/$read/;
+         """
+     }
+  }     
+
+} 
+
+
+Bpipe.run {
+ "_R%_" * [gunzipPair + fastxQual + findAvgQual] + buildPair + trimPair + "%.fasta" * [cleanAssembly] + createLyveSET
+}
+
