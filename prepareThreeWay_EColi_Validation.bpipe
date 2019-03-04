@@ -1,0 +1,58 @@
+myProject="New_Jersey_Validation_2019"
+
+qualMetric = {
+  transform('.fastq.gz') to ('_readMetrics.txt'){
+     exec """
+             run_assembly_readMetrics.pl --fast -e 5000000 $input > $output;
+             perl -ne '@F=split(/\t/,\$_); print \$F[0], "\\t", \$F[5],"\\n";' $output;
+         """
+               
+      }
+  forward input 
+   
+}
+
+buildPair = {
+   transform("Pairs.fastq") {
+     from (".fastq.gz",".fastq.gz") {
+         exec "run_assembly_shuffleReads.pl $input1 $input2 > $output"
+     }
+   }
+}
+
+trimPair = {
+   transform("Pairs.fastq") to ("fastx5.fastq.gz") {
+     exec "fastx_trimmer -Q33 -t 5 -i $input -z -o $output"
+   }
+}
+
+cleanAssembly = {
+  transform('.fasta') to ('.sorted.fasta'){
+      exec "dos2unix < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
+    }
+}
+
+
+createLyveSET1 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+ 
+   
+     transform('_lyveSET') {
+      from(".sorted.fasta", ".sorted.fasta", "fastx5.fastq.gz", "fastx5.fastq.gz", "fastx5.fastq.gz")
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/; cp -v $input2 $output/$ref/;
+         cp -v $input3 $output/$read/; cp -v $input4 $output/$read/; cp -v $input5 $output/$read/;
+         """
+   }     
+
+} 
+
+
+Bpipe.run {
+ ["20%V-NJ-M70520%_R%_" * [qualMetric] + buildPair + trimPair + "20%M70520%spades.fasta" * [cleanAssembly], "20%V-NJ-M70521%_R%_" * [qualMetric] + buildPair + trimPair + "20%M70521%spades.fasta" * [cleanAssembly]] + createLyveSET1
+}
+
