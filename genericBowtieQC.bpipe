@@ -1,0 +1,36 @@
+build = {
+exec """
+      mkdir $input.dir/"smSAM_BAM"; mkdir $input.dir/"smAnnot_Assembly" 
+     """
+}
+
+rename = {
+  assemble="smAnnot_Assembly"
+    exec """
+           cp -v $input.fasta $input.dir/$assemble/"Paired_Ranked_Contigs.fasta" 
+         """
+}
+
+makeSAM = {
+exec """
+     nice samtools view $input.bam > $input.dir/"smSAM_BAM/Paired_SMALT.sam" 
+     """
+}
+
+getDepth = {
+exec """
+     nice samtools depth $input.bam > $input.dir/"smAnnot_Assembly/SMALT_depth.txt"
+     """
+}
+
+printPairedEndStats = {
+exec """
+     perl revis_gather_PE_read_stats.pl $input.dir/"smAnnot_Assembly/Paired_Ranked_Contigs.fasta" $input.dir/"smSAM_BAM/Paired_SMALT.sam" $input.dir/"smAnnot_Assembly/SMALT_depth.txt"
+     """
+}
+
+Bpipe.run {
+ build + "*.fasta" * [rename] + makeSAM + getDepth + printPairedEndStats
+}
+
+
