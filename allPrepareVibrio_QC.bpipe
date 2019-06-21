@@ -1,9 +1,9 @@
-myProject="Salmonella_Certification"
+myProject="Vibrio_Certification"
 
 qualMetric = {
   transform('.fastq.gz') to ('_readMetrics.txt'){
      exec """
-             run_assembly_readMetrics.pl --fast -e 4500000 $input > $output;
+             run_assembly_readMetrics.pl --fast -e 5000000 $input > $output;
              perl -ne '@F=split(/\t/,\$_); print \$F[0], "\\t", \$F[5],"\\n";' $output;
          """
                
@@ -22,8 +22,8 @@ buildPair = {
 }
 
 trimPair = {
-   transform("Pairs.fastq") to ("fastx5.fastq.gz") {
-     exec "fastx_trimmer -Q33 -t 5 -i $input -z -o $output"
+   transform("Pairs.fastq") to ("Pairs.fastq.gz") {
+     exec "gzip -c $input > $output"
    }
 }
 
@@ -40,22 +40,20 @@ createLyveSET = {
   sub="lyveSET_Files"
   ref="reference"
   read="reads"
-  bm="bam"
-  vc="vcf"
  
    transform("_lyveSET") {
-     from (".sorted.fasta",".fastq.gz"){
+     from (".sorted.fasta","Pairs.fastq.gz"){
     exec """
          perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
-         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/; cp -v $myProject/$sub/C6472-M3235-14-007_S2_L001_fastx5.fastq.gz $output/$read/;
+         mv -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/; cp -v 
+$myProject/$sub/"F5828-B2-M3235-18-015_raw_fastx5.fastq.gz" $output/$read/;
+         cp -v $myProject/$sub/"F5828-B2-M3235-18-015_df.sorted.fasta" $output/$ref/;
          """
+       }
      }
-  }     
-
 } 
 
 
 Bpipe.run {
  "_R%_" * [qualMetric] + buildPair + trimPair + "%.fasta" * [cleanAssembly] + createLyveSET
 }
-

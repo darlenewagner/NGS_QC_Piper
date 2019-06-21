@@ -22,14 +22,14 @@ buildPair = {
 }
 
 trimPair = {
-   transform("Pairs.fastq") to ("fastx5.fastq.gz") {
+  transform("Pairs.fastq") to ("fastx5.fastq.gz") {
      exec "fastx_trimmer -Q33 -t 5 -i $input -z -o $output"
    }
 }
 
 cleanAssembly = {
   transform('.fasta') to ('.sorted.fasta'){
-      exec "perl exorcise_endline.pl < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
+      exec "dos2unix < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
     }
  
 }
@@ -45,13 +45,14 @@ createLyveSET = {
      from (".sorted.fasta","fastx5.fastq.gz"){
     exec """
          perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
-         cp -v $input1 $output/$ref; cp -v $input2 $output/$read/; cp -v $myProject/$sub/"D5480-M3235-15-003_S4_L001_fastx5.fastq.gz" $output/$read/;
+         cp -v $input1 $output/$ref/Paired_Ranked_Contigs.fasta; cp -v $input2 $output/$read/; cp -v $myProject/$sub/"D5480-M3235-15-003_S4_L001_fastx5.fastq.gz" $output/$read/;
          """
      }
   }     
 
 } 
 
+## Expects input of one %.fasta file and two paired-end fastq.gz files, indicated by _R%_
 
 Bpipe.run {
  "_R%_" * [qualMetric] + buildPair + trimPair + "%.fasta" * [cleanAssembly] + createLyveSET
