@@ -45,8 +45,7 @@ createLyveSET = {
      from (".sorted.fasta","Pairs.fastq.gz"){
     exec """
          perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
-         mv -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/; cp -v 
-$myProject/$sub/"F5828-B2-M3235-18-015_raw_fastx5.fastq.gz" $output/$read/;
+         mv -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/; cp -v $myProject/$sub/"F5828-B2-M3235-18-015_raw_fastx5.fastq.gz" $output/$read/;
          cp -v $myProject/$sub/"F5828-B2-M3235-18-015_df.sorted.fasta" $output/$ref/;
          """
        }
