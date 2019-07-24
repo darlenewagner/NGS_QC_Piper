@@ -1,0 +1,88 @@
+myProject="State_and_CDC_2019_PT_Sequencing"
+
+qualMetric = {
+  transform('.fastq.gz') to ('_readMetrics.txt'){
+     exec """
+             run_assembly_readMetrics.pl --fast -e 1600000 $input > $output;
+             perl -ne '@F=split(/\t/,\$_); print \$F[0], "\\t", \$F[5],"\\n";' $output;
+         """
+               
+      }
+  forward input 
+   
+}
+
+
+buildPair = {
+   transform("Pairs.fastq") {
+     from (".fastq.gz",".fastq.gz") {
+         exec "run_assembly_shuffleReads.pl $input1 $input2 > $output"
+     }
+   }
+}
+
+trimPair = {
+   transform("Pairs.fastq") to ("Pairs.fastq.gz") {
+     exec "gzip -c $input > $output"
+   }
+}
+
+
+cleanAssembly = {
+  transform('.fasta') to ('.sorted.fasta'){
+      exec "dos2unix < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
+    }
+}
+
+
+
+     
+createLyveSET1 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+ 
+   
+  transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/Campy/D445-A2-M347-18-060_S6_Pairs.fastq.gz $output/$read/;
+         """
+      }  
+   }   
+
+} 
+
+createLyveSET2 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+
+     transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/Campy/D0996-A1-M347-18-060_S9_Pairs.fastq.gz $output/$read/;
+         """
+       }
+     }
+}
+
+
+moveFolder = {
+	copy = "State_and_CDC_2019_PT_Sequencing"
+  exec """
+        cp -vr $input.dir $HOME/State_and_CDC_2019_PT_Sequencing/       
+       """
+}
+
+
+Bpipe.run {
+ ["CJP%445%_R%" * [qualMetric] + buildPair + trimPair + "CJP%445%.fasta" * [cleanAssembly] + createLyveSET1 + moveFolder, "CJP%96%_R%" * [qualMetric] + buildPair + trimPair + "CJP%96%.fasta" * [cleanAssembly] + createLyveSET2 + moveFolder ]
+}
+

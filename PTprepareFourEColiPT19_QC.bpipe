@@ -1,0 +1,120 @@
+myProject="State_and_CDC_2019_PT_Sequencing"
+
+qualMetric = {
+  transform('.fastq.gz') to ('_readMetrics.txt'){
+     exec """
+             run_assembly_readMetrics.pl --fast -e 5000000 $input > $output;
+             perl -ne '@F=split(/\t/,\$_); print \$F[0], "\\t", \$F[5],"\\n";' $output;
+         """
+               
+      }
+  forward input 
+   
+}
+
+
+buildPair = {
+   transform("Pairs.fastq") {
+     from (".fastq.gz",".fastq.gz") {
+         exec "run_assembly_shuffleReads.pl $input1 $input2 > $output"
+     }
+   }
+}
+
+trimPair = {
+   transform("Pairs.fastq") to ("Pairs.fastq.gz") {
+     exec "gzip -c $input > $output"
+   }
+}
+
+cleanAssembly = {
+  transform('.fasta') to ('.sorted.fasta'){
+      exec "dos2unix < $input | perl Sort_and_screen_contig_lengths.pl > $output; rm -v $input"
+    }
+}
+
+moveFolder = {
+	copy = "State_and_CDC_2019_PT_Sequencing"
+  exec """
+        cp -vr $input.dir $HOME/State_and_CDC_2019_PT_Sequencing/       
+       """
+}
+
+
+
+     
+createLyveSET1 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+ 
+   
+    transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/STEC/01-98-A1-M3235-18-059_S1_Pairs.fastq.gz $output/$read/;
+         """
+       }
+     }
+}
+
+createLyveSET2 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+
+     transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/STEC/05-98-B1-M3235-18-059_S7_Pairs.fastq.gz $output/$read/;
+         """
+       }
+     }
+}
+
+createLyveSET3 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+ 
+   
+     transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/STEC/07-98-B2-M3235-18-059_S12_Pairs.fastq.gz $output/$read/;
+         """
+        }
+     }
+}
+
+createLyveSET4 = {
+
+  sub="lyveSET_Files"
+  ref="reference"
+  read="reads"
+
+     transform("_lyveSET") {
+   from (".sorted.fasta","Pairs.fastq.gz"){
+    exec """
+         perl /scicomp/groups/OID/NCEZID/DFWED/EDLB/share/bin/lyve-SET-v1.1.4f/scripts/set_manage.pl --create $output || true;
+         cp -v $input1 $output/$ref/"Paired_Ranked_Contigs.fasta"; cp -v $input2 $output/$read/;
+         cp -v $HOME/State_and_CDC_2019_PT_Sequencing/lyveSET_Files/STEC/24-98-A2-M3235-18-059_S20_Pairs.fastq.gz $output/$read/;
+         """
+      }
+   }
+}
+
+
+Bpipe.run {
+ ["ECP19-198%_R%_" * [qualMetric] + buildPair + trimPair + "ECP19-198%.fasta" * [cleanAssembly] + createLyveSET1 + moveFolder, "ECP19-598%_R%_" * [qualMetric] + buildPair + trimPair + "ECP19-598%.fasta" * [cleanAssembly] + createLyveSET2 + moveFolder, "ECP19-798%_R%_" * [qualMetric] + buildPair + trimPair + "ECP19-798%.fasta" * [cleanAssembly] + createLyveSET3 + moveFolder, "ECP19-2498%_R%_" * [qualMetric] + buildPair + trimPair + "ECP19-2498%.fasta" * [cleanAssembly] + createLyveSET4 + moveFolder ]
+}
+
